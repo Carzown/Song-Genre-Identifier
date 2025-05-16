@@ -4,6 +4,7 @@ numpy
 scipy
 scikit-learn
 pydub
+ffmpeg
 
 
 
