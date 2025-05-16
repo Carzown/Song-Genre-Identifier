@@ -2,6 +2,11 @@ import streamlit as st
 import numpy as np
 import pickle
 from dsp_utils import load_mp3, extract_features
+import shutil
+if not shutil.which("ffmpeg"):
+    raise EnvironmentError("FFmpeg not found. Please install it and make sure it's in your PATH.")
+
+
 
 # ---------------- Load Model ---------------- #
 @st.cache_resource
