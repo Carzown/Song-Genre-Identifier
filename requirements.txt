@@ -1,10 +1,5 @@
 streamlit
 librosa
+scikit-learn
 numpy
 scipy
-scikit-learn
-pydub
-ffmpeg
-
-
-
