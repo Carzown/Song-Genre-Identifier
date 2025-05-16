@@ -1,27 +1,30 @@
-# train_model.py
-import os
-import librosa
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+import os
 import pickle
-from dsp_utils import extract_features, low_pass_filter
+from sklearn.ensemble import RandomForestClassifier
 
-genres = 'blues classical country disco hiphop jazz metal pop reggae rock'.split()
-data = []
-labels = []
+# Use same feature extractor from above
+from your_feature_module import extract_features  # replace with actual file or copy the function here
 
-for genre in genres:
-    folder = f"genres/{genre}"  # path to dataset
-    for filename in os.listdir(folder)[:20]:  # limit for speed
-        file_path = os.path.join(folder, filename)
-        y, sr = librosa.load(file_path, sr=22050)
-        y = low_pass_filter(y, sr)
-        features = extract_features(y, sr)
-        data.append(features)
-        labels.append(genre)
+# Dummy data generator (replace with your real dataset)
+def generate_dummy_data(num_samples=100):
+    X = []
+    y = []
+    genres = ['rock', 'pop', 'jazz', 'hiphop']
+    for _ in range(num_samples):
+        # simulate random audio feature vectors with fixed size 29
+        feat = np.random.rand(29)
+        X.append(feat)
+        y.append(np.random.choice(genres))
+    return np.array(X), np.array(y)
 
-clf = RandomForestClassifier(n_estimators=100)
-clf.fit(data, labels)
+if __name__ == "__main__":
+    X, y = generate_dummy_data()
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X, y)
 
-with open("model/genre_classifier.pkl", "wb") as f:
-    pickle.dump(clf, f)
+    os.makedirs("model", exist_ok=True)
+    with open("model/genre_classifier.pkl", "wb") as f:
+        pickle.dump(model, f)
+
+    print("✅ Model trained and saved as model/genre_classifier.pkl")
