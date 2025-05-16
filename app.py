@@ -1,69 +1,54 @@
 import streamlit as st
 import numpy as np
-import pickle
 import librosa
-import scipy.signal as signal
-import tempfile
+import os
+import pickle
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score
+from io import BytesIO
+import soundfile as sf
 
-# --- Include extract_features and low_pass_filter here exactly as above ---
+st.set_page_config(page_title="🎵 Song Genre Identifier", layout="centered")
 
-def low_pass_filter(y, sr, cutoff=4000):
-    nyquist = 0.5 * sr
-    norm_cutoff = cutoff / nyquist
-    b, a = signal.butter(5, norm_cutoff, btype='low', analog=False)
-    return signal.filtfilt(b, a, y)
-
-def extract_features(y, sr, n_mfcc=13):
-    y = low_pass_filter(y, sr)
-    
-    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-    spec_cent = librosa.feature.spectral_centroid(y=y, sr=sr)
-    spec_bw = librosa.feature.spectral_bandwidth(y=y, sr=sr)
-    rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)
-    zcr = librosa.feature.zero_crossing_rate(y)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-
-    features = np.hstack([
-        np.mean(chroma, axis=1),
-        np.mean(spec_cent),
-        np.mean(spec_bw),
-        np.mean(rolloff),
-        np.mean(zcr),
-        np.mean(mfcc, axis=1)
-    ])
-
-    return features
-
-def load_audio(file, duration_sec=20):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-        tmp.write(file.read())
-        tmp_path = tmp.name
-    y, sr = librosa.load(tmp_path, sr=22050, duration=duration_sec)
-    return y, sr
-
+# --- 1. Load Model ---
 @st.cache_resource
 def load_model():
-    with open("model/genre_classifier.pkl", "rb") as f:
+    with open("model.pkl", "rb") as f:
         return pickle.load(f)
 
-st.title("🎧 Genre Identifier (First 20 Seconds)")
+model = load_model()
 
-st.markdown("""
-Upload an `.mp3` file. The app analyzes only the first 20 seconds and predicts the music genre.
-""")
+# --- 2. Feature Extraction ---
+def extract_features(y, sr):
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    return np.mean(mfccs.T, axis=0)
 
-uploaded_file = st.file_uploader("Upload MP3 File", type=["mp3"])
+def preprocess_audio(file):
+    y, sr = librosa.load(file, duration=20)
+    return extract_features(y, sr).reshape(1, -1)
 
-if uploaded_file:
-    st.audio(uploaded_file)
+# --- 3. UI ---
+st.title("🎶 Song Genre Identifier (GTZAN)")
+st.markdown("Upload a music clip (max 20 sec). The model will try to identify its genre.")
 
-    with st.spinner("Analyzing first 20 seconds..."):
-        y, sr = load_audio(uploaded_file, duration_sec=20)
+uploaded_file = st.file_uploader("Upload your audio file (.wav)", type=["wav", "mp3"])
+
+if uploaded_file is not None:
+    st.audio(uploaded_file, format="audio/wav")
+
+    # Convert uploaded file to WAV if needed
+    try:
+        # Convert to WAV buffer using librosa
+        y, sr = librosa.load(uploaded_file, duration=20)
+        buf = BytesIO()
+        sf.write(buf, y, sr, format='WAV')
+        buf.seek(0)
+
+        # Predict
         features = extract_features(y, sr).reshape(1, -1)
-
-        st.write(f"Feature vector shape: {features.shape}")
-
-        model = load_model()
         prediction = model.predict(features)[0]
-
-    st.success(f"🎼 Predicted Genre: **{prediction}**")
+        st.success(f"🎧 Predicted Genre: **{prediction}**")
+    except Exception as e:
+        st.error(f"⚠️ Error processing audio: {e}")
